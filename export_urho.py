@@ -45,7 +45,7 @@ TRACK_SCALE         = 0x0004
 
 TRIANGLE_LIST       = 0
 LINE_LIST           = 1
-            
+
 # Max number of bones supported by HW skinning
 MAX_SKIN_MATRICES   = 64
 BONES_PER_VERTEX    = 4
@@ -78,7 +78,7 @@ def RelativeAbs(e1, e2):
     if diff < EPSILON:
         return 0
     return d / max(abs(e1),abs(e2))
-    
+
 def FloatListEqualError(v1, v2):
     if v1 is None:
         if v2 is None:
@@ -178,7 +178,7 @@ class UrhoVertex:
         # Bit mask of elements present
         self.mask = 0
         # Only used by morphs, original vertex index in the not morphed vertex buffer
-        self.index = None 
+        self.index = None
         # Vertex position: Vector((0.0, 0.0, 0.0)) of floats
         self.pos = tVertex.pos
         if tVertex.pos:
@@ -188,7 +188,7 @@ class UrhoVertex:
         if tVertex.normal:
             self.mask |= ELEMENT_NORMAL
         # Vertex color: (0, 0, 0, 0) of unsigned bytes
-        self.color = tVertex.color       
+        self.color = tVertex.color
         if tVertex.color:
             self.mask |= ELEMENT_COLOR
         # Vertex UV texture coordinate: (0.0, 0.0) of floats
@@ -217,7 +217,7 @@ class UrhoVertex:
 
     # used by the function index() of lists
     def __eq__(self, other):
-        return (self.pos == other.pos and self.normal == other.normal and 
+        return (self.pos == other.pos and self.normal == other.normal and
                 self.color == other.color and self.uv == other.uv)
 
     # compare position, normal, color, UV, UV2 with another vertex, returns True is the error is insignificant
@@ -243,7 +243,7 @@ class UrhoVertex:
         ncos = VectorDotProduct(self.normal, other.normal)
         if ncos < cos(30 / 180 * pi):
             return INFINITY
-        # UV are 0..1 x2, normals -1..1 x1, so this absolute error should be good 
+        # UV are 0..1 x2, normals -1..1 x1, so this absolute error should be good
         return (FloatListEqualError(self.uv, other.uv)  + 1-ncos)
 
     # not unique id of this vertex based on its position
@@ -252,7 +252,7 @@ class UrhoVertex:
         if self.pos:
             hashValue ^= hash(self.pos.x) ^ hash(self.pos.y) ^ hash(self.pos.z)
         return hashValue
-            
+
     # used by morph vertex calculations (see AnimatedModel::ApplyMorph)
     def subtract(self, other, mask):
         if mask & ELEMENT_POSITION:
@@ -264,7 +264,7 @@ class UrhoVertex:
             # tangent.w it is not modified by morphs (remember, there we
             # have saved bitangent direction)
             self.tangent.w = 0
-            
+
 class UrhoVertexBuffer:
     def __init__(self):
         # Flags of the elements contained in every vertex of this buffer
@@ -293,12 +293,12 @@ class UrhoIndexBuffer:
         self.indexSize = 0
         # List of triples of indices (in the vertex buffer) to draw triangles
         self.indexes = []
-    
+
 class UrhoLodLevel:
     def __init__(self):
         # Distance above which we draw this LOD
         self.distance = 0.0
-        # How to draw triangles: TRIANGLE_LIST, LINE_LIST 
+        # How to draw triangles: TRIANGLE_LIST, LINE_LIST
         self.primitiveType = 0
         # Index of the vertex buffer used by this LOD in the model list
         self.vertexBuffer = 0
@@ -321,13 +321,13 @@ class UrhoGeometry:
         self.center = Vector((0.0, 0.0, 0.0))
         # Name of the material used (only for materials list)
         self.uMaterialName = None
-        
+
 class UrhoVertexMorph:
     def __init__(self):
          # Morph name
         self.name = None
-        # Maps from 'vertex buffer index' to 'list of vertex', these are only the 
-        # vertices modified by the morph, not all the vertices in the buffer (each 
+        # Maps from 'vertex buffer index' to 'list of vertex', these are only the
+        # vertices modified by the morph, not all the vertices in the buffer (each
         # morphed vertex has an index to the original vertex)
         self.vertexBufferMap = {}
 
@@ -371,7 +371,7 @@ class UrhoModel:
         self.bones = []
         # Bounding box, contains each LOD of each geometry
         self.boundingBox = BoundingBox()
-        
+
 # --- Animation classes ---
 
 class UrhoKeyframe:
@@ -392,7 +392,7 @@ class UrhoKeyframe:
         self.scale = tKeyframe.scale
         if tKeyframe.scale:
             self.mask |= TRACK_SCALE
-            
+
 class UrhoTrack:
     def __init__(self):
         # Track name (practically same as the bone name that should be driven)
@@ -415,7 +415,7 @@ class UrhoTrack:
 
 class UrhoTrigger:
     def __init__(self):
-        # Trigger name 
+        # Trigger name
         self.name = ""
         # Time in seconds: float
         self.time = None
@@ -472,7 +472,7 @@ class UrhoExportData:
         self.animations = []
         # List of UrhoMaterial
         self.materials = []
-        
+
 class UrhoExportOptions:
     def __init__(self):
         self.splitSubMeshes = False
@@ -482,7 +482,7 @@ class UrhoExportOptions:
 #--------------------
 # Writers
 #--------------------
-    
+
 def UrhoWriteModel(model, filename):
 
     if not model.vertexBuffers or not model.indexBuffers or not model.geometries:
@@ -498,7 +498,7 @@ def UrhoWriteModel(model, filename):
 
     # File Identifier
     fw.writeAsciiStr("UMDL")
-    
+
     # Number of vertex buffers
     fw.writeUInt(len(model.vertexBuffers))
     # For each vertex buffer
@@ -616,7 +616,7 @@ def UrhoWriteModel(model, filename):
                 # Moprh vertex Tangent
                 if mask & ELEMENT_TANGENT:
                     fw.writeVector3(vertex.tangent)
-                    
+
     # Number of bones (may be 0)
     fw.writeUInt(len(model.bones))
     # For each bone
@@ -643,10 +643,10 @@ def UrhoWriteModel(model, filename):
             fw.writeFloat(bone.radius)
         # Bone bounding box minimum and maximum
         if bone.collisionMask & BONE_BOUNDING_BOX:
-            fw.writeVector3(bone.boundingBox.min)    
-            fw.writeVector3(bone.boundingBox.max)    
-         
-    # Model bounding box minimum  
+            fw.writeVector3(bone.boundingBox.min)
+            fw.writeVector3(bone.boundingBox.max)
+
+    # Model bounding box minimum
     fw.writeVector3(model.boundingBox.min)
     # Model bounding box maximum
     fw.writeVector3(model.boundingBox.max)
@@ -655,10 +655,10 @@ def UrhoWriteModel(model, filename):
     for geometry in model.geometries:
         # Geometry center
         fw.writeVector3(geometry.center)
-    
+
     fw.close()
 
-    
+
 def UrhoWriteAnimation(animation, filename):
 
     if not animation.tracks:
@@ -679,7 +679,7 @@ def UrhoWriteAnimation(animation, filename):
     fw.writeUByte(0)
     # Length in seconds
     fw.writeFloat(animation.length)
-    
+
     # Number of tracks
     fw.writeUInt(len(animation.tracks))
     # For each track
@@ -690,7 +690,7 @@ def UrhoWriteAnimation(animation, filename):
         # Mask of included animation data
         mask = track.elementMask
         fw.writeUByte(track.elementMask)
-        
+
         # Number of tracks
         fw.writeUInt(len(track.keyframes))
         # For each keyframe
@@ -709,10 +709,10 @@ def UrhoWriteAnimation(animation, filename):
 
     fw.close()
 
-    
+
 # As described in Animation::Load, Animation::Save
 def UrhoWriteTriggers(triggersList, filename, fOptions):
-    
+
     triggersElem = ET.Element('animation')
 
     for trigger in triggersList:
@@ -721,7 +721,7 @@ def UrhoWriteTriggers(triggersList, filename, fOptions):
             triggerElem.set("time", FloatToString(trigger.time))
         if trigger.ratio is not None:
             triggerElem.set("normalizedtime", FloatToString(trigger.ratio))
-        # We use a string variant, for other types See typeNames[] in Variant.cpp 
+        # We use a string variant, for other types See typeNames[] in Variant.cpp
         # and XMLElement::GetVariant()
         triggerElem.set("type", "String")
         triggerElem.set("value", str(trigger.data))
@@ -754,7 +754,7 @@ def GetMaxElementMask(indices, vertices):
 # NOTE: only different geometries use different buffers
 
 # NOTE: LODs must use the same vertex buffer, and so the same vertices. This means
-# normals and tangents are a bit off, but they are good infact they are approximations 
+# normals and tangents are a bit off, but they are good infact they are approximations
 # of the first LOD which uses those vertices.
 # Creating a LOD we search for the similar vertex.
 
@@ -762,7 +762,7 @@ def GetMaxElementMask(indices, vertices):
 
 # NOTE: morph must have what geometry they refer to, or the vertex buffer or better
 # the index buffer as vertex buffer is in common.
-    
+
 # NOTE: a morph can affect more than one vertex buffer
 
 # NOTE: if a vertex buffer has blendweights then all its vertices must have it
@@ -785,17 +785,17 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
 
     uModel = UrhoModel()
     uModel.name = tData.objectName
-    uExportData.models.append(uModel)    
-    
+    uExportData.models.append(uModel)
+
     # For each bone
     for boneName, bone in tData.bonesMap.items():
         uBoneIndex = len(uModel.bones)
         # Sanity check for the OrderedDict
         assert bone.index == uBoneIndex
-        
+
         uBone = UrhoBone()
         uModel.bones.append(uBone)
-        
+
         uBone.name = boneName
         if bone.parentName:
             # Child bone
@@ -810,17 +810,17 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
         uBone.inverseMatrix = uBone.matrix.inverted()
         uBone.derivedPosition = uBone.matrix.to_translation()
         uBone.length = bone.length
-    
-    totalVertices = len(tData.verticesList) 
-    
-    # Search in geometries for the maximum number of vertices 
+
+    totalVertices = len(tData.verticesList)
+
+    # Search in geometries for the maximum number of vertices
     maxLodVertices = 0
     for tGeometry in tData.geometriesList:
         for tLodLevel in tGeometry.lodLevels:
             vertexCount = len(tLodLevel.indexSet)
             if vertexCount > maxLodVertices:
                 maxLodVertices = vertexCount
-    
+
     # If one big buffer needs a 32 bits index but each geometry needs only a 16 bits
     # index then try to use a different buffer for each geometry
     useOneBuffer = True
@@ -833,28 +833,28 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
     indexBuffer = None
     # Maps old vertex index to Urho vertex buffer index and Urho vertex index
     modelIndexMap = {}
-    
+
     # For each geometry
     for tGeometry in tData.geometriesList:
-        
+
         uGeometry = UrhoGeometry()
         uModel.geometries.append(uGeometry)
         geomIndex = len(uModel.geometries) - 1
 
         # Material name (can be None)
         uGeometry.uMaterialName = tGeometry.materialName
-        
+
         # Start value for geometry center (one for each geometry)
         center = Vector((0.0, 0.0, 0.0))
-        
+
         # Set of remapped vertices
         remappedVertices = set()
-        
+
         # For each LOD level
         for lodIndex, tLodLevel in enumerate(tGeometry.lodLevels):
             uLodLevel = UrhoLodLevel()
             uGeometry.lodLevels.append(uLodLevel)
-            
+
             if lodIndex == 0 and tLodLevel.distance != 0.0:
                 # Note: if we miss a LOD, its range will be covered by the following LOD (which is this one),
                 # this can cause overlapping between LODs of different geometries
@@ -877,7 +877,7 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
                 uModel.indexBuffers.append(indexBuffer)
                 uLodLevel.startIndex = 0
             else:
-                uLodLevel.startIndex = len(indexBuffer.indexes)    
+                uLodLevel.startIndex = len(indexBuffer.indexes)
 
             # Set how many indices the LOD level will use
             uLodLevel.countIndex = len(tLodLevel.triangleList) * 3
@@ -887,22 +887,22 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
             ##print("Geometry{:d} LOD{:d} using: vertex buffer {:d} ({:d}), index buffer {:d} ({:d})"
             ##      .format(geomIndex, lodIndex, uLodLevel.vertexBuffer, len(tLodLevel.indexSet),
             ##      uLodLevel.indexBuffer, uLodLevel.countIndex))
-            
+
             # Maps old vertex index to new vertex index in the new Urho buffer
             indexMap = {}
-            
+
             # Errors helpers
             warningNewVertices = False
-            
+
             # Try to guess the most complete element mask
             randomIndices = random.sample(tLodLevel.indexSet, min(30, len(tLodLevel.indexSet)) )
             guessedElementMask = GetMaxElementMask(randomIndices, tData.verticesList)
             if vertexBuffer.elementMask is None and guessedElementMask:
                 vertexBuffer.elementMask = guessedElementMask
-                
+
             # Add vertices to the vertex buffer
             for tVertexIndex in tLodLevel.indexSet:
-            
+
                 tVertex = tData.verticesList[tVertexIndex]
 
                 # Create a Urho vertex
@@ -917,10 +917,10 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
 
                 # All that this code do is "uVertexIndex = vertexBuffer.vertices.index(uVertex)", but we use
                 # a map to speed things up.
-            
+
                 # Get an hash of the vertex (more vertices can have the same hash)
                 uVertexHash = hash(uVertex)
-            
+
                 try:
                     # Get the list of vertices indices with the same hash
                     uVerticesMapList = uVerticesMap[uVertexHash]
@@ -928,7 +928,7 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
                     # If the hash is not mapped, create a new list (we could use a set but a list is faster)
                     uVerticesMapList = []
                     uVerticesMap[uVertexHash] = uVerticesMapList
-                
+
                 uVertexIndex = None
                 if lodIndex == 0 or uExportOptions.useStrictLods:
                     # For each index in the list, get the corresponding vertex and test if it is equal to tVertex.
@@ -968,7 +968,7 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
             if warningNewVertices:
                 log.warning("LOD {:d} of object {:s} Geometry{:d} has new vertices."
                             .format(lodIndex, uModel.name, geomIndex))
-                            
+
             # Add the local vertex map to the global map
             for oldIndex, newIndex in indexMap.items():
                 # We create a map: Map[old index] = Set( Tuple(new buffer index, new vertex index) )
@@ -982,7 +982,7 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
                 # Add a tuple to the Set: new buffer index, new vertex index
                 vbvi = (uLodLevel.vertexBuffer, newIndex)
                 vbviSet.add(vbvi)
-                
+
             # Add indices to the index buffer
             centerCount = 0
             for triangle in tLodLevel.triangleList:
@@ -997,10 +997,10 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
             # Update geometry center (only for the first LOD)
             if lodIndex == 0 and centerCount:
                 uGeometry.center = center / centerCount;
-                        
-            # If this geometry has bone weights but the number of total bones is over the limit 
+
+            # If this geometry has bone weights but the number of total bones is over the limit
             # then let's hope our geometry uses only a subset of the total bones within the limit.
-            # If this is true then we can remap the original bone index, which can be over the 
+            # If this is true then we can remap the original bone index, which can be over the
             # limit, to a local, in this geometry, bone index within the limit.
             if len(uModel.bones) > MAX_SKIN_MATRICES and (vertexBuffer.elementMask & ELEMENT_BLEND) == ELEMENT_BLEND:
                 discardedBones = defaultdict(float)
@@ -1068,7 +1068,7 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
         for uVertex in uVertexBuffer.vertices:
             vertexPos = uVertex.pos
             for weight, boneIndex, remappedBoneIndex in uVertex.weights:
-                # The 0.33 threshold check is to avoid including vertices in the bone hitbox 
+                # The 0.33 threshold check is to avoid including vertices in the bone hitbox
                 # to which the bone contributes only a little. It is rather arbitrary. (Lasse)
                 if weight > 0.33:
                     uBone = uModel.bones[boneIndex]
@@ -1111,14 +1111,14 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
             for uVertexBufferIndex, uVertexIndex in vbviSet:
                 guessingIndices[uVertexBufferIndex].append(len(randomVertices))
                 randomVertices.append(tMorph.vertexMap[tVertexIndex])
-                
+
         # Try to guess the most complete element mask for each vertex buffer
         guessedElementMasks = {}
         for bufferIndex, randomIndices in guessingIndices.items():
             elementMask = GetMaxElementMask(randomIndices, randomVertices)
             if elementMask:
                 guessedElementMasks[bufferIndex] = elementMask
-                        
+
         # For each vertex affected by the morph
         for tVertexIndex, tMorphVertex in tMorph.vertexMap.items():
             # Get the correspondent Urho vertex buffer and vertex index (there can be more than one)
@@ -1131,10 +1131,10 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
                 except KeyError:
                     uMorphVertexBuffer = UrhoVertexBuffer()
                     uMorph.vertexBufferMap[uVertexBufferIndex] = uMorphVertexBuffer
-                
+
                 if uMorphVertexBuffer.elementMask is None and uVertexBufferIndex in guessedElementMasks:
                     uMorphVertexBuffer.elementMask = guessedElementMasks[uVertexBufferIndex]
-                    
+
                 # Create the morphed vertex
                 uMorphVertex = UrhoVertex(tMorphVertex)
                 try:
@@ -1149,10 +1149,10 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
                 # Get the original vertex
                 uVertexBuffer = uModel.vertexBuffers[uVertexBufferIndex]
                 uVertex = uVertexBuffer.vertices[uVertexIndex]
-                
+
                 # Calculate morph values (pos, normal, tangent) relative to the original vertex
                 uMorphVertex.subtract(uVertex, uMorphVertexBuffer.elementMask)
-                    
+
                 # Add the vertex to the morph buffer
                 uMorphVertex.index = uVertexIndex
                 uMorphVertexBuffer.vertices.append(uMorphVertex)
@@ -1172,17 +1172,17 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
             uVertexBuffer.morphMinIndex = 0
             uVertexBuffer.morphMaxIndex = 0
 
-            
+
     uAnimations = uExportData.animations
     for tAnimation in tData.animationsList:
         uAnimation = UrhoAnimation()
         uAnimation.name = tAnimation.name
         uAnimation.length = None
-        
+
         for tTrack in tAnimation.tracks:
             uTrack = UrhoTrack()
             uTrack.name = tTrack.name
-            
+
             for tFrame in tTrack.frames:
                 uKeyframe = UrhoKeyframe(tFrame)
                 try:
@@ -1213,24 +1213,24 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
                 uTrigger.time = tTrigger.time
             uTrigger.data = tTrigger.data
             uAnimation.triggers.append(uTrigger)
-                    
+
         # Add only animations with tracks
         if uAnimation.tracks:
             uAnimations.append(uAnimation)
-    
+
     uMaterials = uExportData.materials
     for tMaterial in tData.materialsList:
         uMaterial = UrhoMaterial()
-        # For material list to work the name must be the same 
+        # For material list to work the name must be the same
         uMaterial.name = tMaterial.name
-        
+
         alpha = 1.0
         if tMaterial.opacity:
             alpha = tMaterial.opacity
 
         isEmissive = False
         emissiveKey = None
-        
+
         technique = "NoTexture"
         if "diffuse" in tMaterial.texturesNames:
             technique = "Diff"
@@ -1262,7 +1262,7 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
         if tMaterial.diffuseColor:
             diffuse = tMaterial.diffuseColor * tMaterial.diffuseIntensity
             uMaterial.diffuseColor = (diffuse.r, diffuse.g, diffuse.b, alpha)
-            
+
         if tMaterial.specularColor and tMaterial.specularHardness:
             specular = tMaterial.specularColor * tMaterial.specularIntensity
             power = tMaterial.specularHardness
@@ -1285,10 +1285,9 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
             uMaterial.texturesNames["emissive"] = tMaterial.texturesNames[emissiveKey]
 
         uMaterials.append(uMaterial)
-       
 
- 
-    
-    
-    
-    
+
+
+
+
+

@@ -95,15 +95,15 @@ class TVertex:
         # TODO: can we do without weights?
         # TODO: compare floats with a epsilon margin?
         #return (self.__dict__ == other.__dict__)
-        return (self.pos == other.pos and 
-                self.normal == other.normal and 
+        return (self.pos == other.pos and
+                self.normal == other.normal and
                 self.uv == other.uv and
 				self.color == other.color)
 
     def isEqual(self, other):
         # TODO: compare floats with a epsilon margin?
         return self == other
-                
+
     def __hash__(self):
         hashValue = 0
         if self.pos:
@@ -115,7 +115,7 @@ class TVertex:
         if self.color:
             hashValue ^= hash((self.color[3] << 24) | (self.color[2] << 16) | (self.color[1] << 8) | self.color[0])
         return hashValue
-    
+
     def __str__(self):
         s  = "  coords: {: .3f} {: .3f} {: .3f}".format(self.pos.x, self.pos.y, self.pos.z)
         s += "\n normals: {: .3f} {: .3f} {: .3f}".format(self.normal.x, self.normal.y, self.normal.z)
@@ -142,7 +142,7 @@ class TLodLevel:
         # List of triangles of the LOD (triples of vertex indices)
         self.triangleList = []
 
-    def __str__(self):  
+    def __str__(self):
         s = "  distance: {:.3f}\n".format(self.distance)
         s += "  triangles: "
         for i, t in enumerate(self.triangleList):
@@ -150,7 +150,7 @@ class TLodLevel:
                 s += "\n             "
             s += "{:3d} {:3d} {:3d} |".format(t[0],t[1],t[2])
         return s
-    
+
 # Geometry class
 class TGeometry:
     def __init__(self):
@@ -180,7 +180,7 @@ class TMorph:
         # Maps vertex index to morphed TVertex
         self.vertexMap = {}
 
-    def __str__(self):  
+    def __str__(self):
         s = " name: {:s}\n".format(self.name)
         s += " Vertices: "
         for k, v in sorted(self.vertices.items()):
@@ -212,7 +212,7 @@ class TMaterial:
         self.emitColor = None
         # Emit factor (1.0)
         self.emitIntensity = None
-        # Opacity (1.0) 
+        # Opacity (1.0)
         self.opacity = None
         # Alpha Mask
         self.alphaMask = False
@@ -243,7 +243,7 @@ class TMaterial:
             return (self.name == other.name)
         return (self.name == other)
 
-    def __str__(self):  
+    def __str__(self):
         return (" name: {:s}\n".format(self.name) )
 
 #--------------------
@@ -280,7 +280,7 @@ class TFrame:
         self.position = position
         self.rotation = rotation
         self.scale = scale
-        
+
     def hasMoved(self, other):
         return (self.position != other.position or self.rotation != other.rotation or self.scale != other.scale)
 
@@ -291,7 +291,7 @@ class TTrack:
 
 class TTrigger:
     def __init__(self, name):
-        # Trigger name 
+        # Trigger name
         self.name = name
         # Time in seconds
         self.time = None
@@ -385,14 +385,14 @@ class TOptions:
         self.doMorphUV = True
         self.doOptimizeIndices = True
         self.doMaterials = True
-        
+
 
 #--------------------
-# “Computing Tangent Space Basis Vectors for an Arbitrary Mesh” by Lengyel, Eric. 
+# “Computing Tangent Space Basis Vectors for an Arbitrary Mesh” by Lengyel, Eric.
 # Terathon Software 3D Graphics Library, 2001.
 # http://www.terathon.com/code/tangent.html
 #--------------------
-        
+
 def GenerateTangents(tLodLevels, tVertexList, errorsMem):
 
     if not tVertexList:
@@ -406,20 +406,20 @@ def GenerateTangents(tLodLevels, tVertexList, errorsMem):
         incompleteUvIndices = errorsMem.Get("incomplete UV", set() )
 
     # Init the values
-    tangentOverwritten = 0    
+    tangentOverwritten = 0
     for tLodLevel in reversed(tLodLevels):
         if not tLodLevel.indexSet or not tLodLevel.triangleList:
             log.warning("Empty LOD, tangent generation skipped.")
             tLodLevels.remove(tLodLevel)
             continue
-        
+
         for vertexIndex in tLodLevel.indexSet:
             vertex = tVertexList[vertexIndex]
-            
+
             # Check if the tangent was already calculated (4 components) for this vertex and we're overwriting it
             if vertex.tangent and len(vertex.tangent) == 4:
                 tangentOverwritten += 1
-                
+
             # Check if we have all the needed data to do the calculations
             if vertex.pos is None:
                 if incompleteUvIndices is not None:
@@ -436,7 +436,7 @@ def GenerateTangents(tLodLevels, tVertexList, errorsMem):
                     incompleteUvIndices.add(vertex.blenderIndex)
                 log.warning("Missing UV on vertex {:d}, tangent generation cancelled.".format(vertex.blenderIndex[1]))
                 return
-            
+
             # Init tangent (3 components) and bitangent vectors
             vertex.tangent = Vector((0.0, 0.0, 0.0))
             vertex.bitangent = Vector((0.0, 0.0, 0.0))
@@ -448,16 +448,16 @@ def GenerateTangents(tLodLevels, tVertexList, errorsMem):
     invalidUV = False
     for tLodLevel in tLodLevels:
         for i, triangle in enumerate(tLodLevel.triangleList):
-            # For each triangle, we have 3 vertices vertex1, vertex2, vertex3, each of the have their UV coordinates, we want to 
+            # For each triangle, we have 3 vertices vertex1, vertex2, vertex3, each of the have their UV coordinates, we want to
             # find two unit orthogonal vectors (tangent and bitangent) such as we can express each vertex position as a function
-            # of the vertex UV: 
+            # of the vertex UV:
             #  VertexPosition = Tangent * f'(VertexUV) + BiTangent * f"(VertexUV)
             # Actually we are going to express them relatively to a vertex chosen as origin (vertex1):
             #  vertex - vertex1 = Tangent * (vertex.u - vertex1.u) + BiTangent * (vertex.v - vertex1.v)
             # We have two equations, one for vertex2-vertex1 and one for vertex3-vertex1, if we put them in a system and solve it
             # we can obtain Tangent and BiTangent:
             #  [T; B] = [u1, v1; u2, v2]^-1 * [V2-V1; V3-V1]
-            
+
             vertex1 = tVertexList[triangle[0]]
             vertex2 = tVertexList[triangle[1]]
             vertex3 = tVertexList[triangle[2]]
@@ -480,7 +480,7 @@ def GenerateTangents(tLodLevels, tVertexList, errorsMem):
 
             # Determinant of the matrix [u1 v1; u2 v2]
             d = u1 * v2 - u2 * v1
-            
+
             # If the determinant is zero then the points (0,0), (u1,v1), (u2,v2) are in line, this means
             # the area on the UV map of this triangle is null. This is an error, we must skip this triangle.
             if d == 0:
@@ -493,11 +493,11 @@ def GenerateTangents(tLodLevels, tVertexList, errorsMem):
 
             t = Vector( ((v2 * x1 - v1 * x2) / d, (v2 * y1 - v1 * y2) / d, (v2 * z1 - v1 * z2) / d) )
             b = Vector( ((u1 * x2 - u2 * x1) / d, (u1 * y2 - u2 * y1) / d, (u1 * z2 - u2 * z1) / d) )
-            
+
             vertex1.tangent += t;
             vertex2.tangent += t;
             vertex3.tangent += t;
-            
+
             vertex1.bitangent += b;
             vertex2.bitangent += b;
             vertex3.bitangent += b;
@@ -512,7 +512,7 @@ def GenerateTangents(tLodLevels, tVertexList, errorsMem):
             # Skip already calculated vertices
             if len(vertex.tangent) == 4:
                 continue
-                
+
             # Unit vector perpendicular to normal and in the same plane of normal and tangent
             tOrtho = ( vertex.tangent - vertex.normal * vertex.normal.dot(vertex.tangent) ).normalized()
             # Unit vector perpendicular to the plane of normal and tangent
@@ -521,12 +521,12 @@ def GenerateTangents(tLodLevels, tVertexList, errorsMem):
             # Calculate handedness: if bOrtho and bitangent have the different directions, save the verse
             # in tangent.w, so we can reconstruct bitangent by: tangent.w * normal.cross(tangent)
             w = 1.0 if bOrtho.dot(vertex.bitangent) >= 0.0 else -1.0
-            
+
             vertex.bitangent = bOrtho
             vertex.tangent = Vector((tOrtho.x, tOrtho.y, tOrtho.z, w))
 
 
-        
+
 #--------------------
 # Linear-Speed Vertex Cache Optimisation algorithm by Tom Forsyth
 #  https://home.comcast.net/~tom_forsyth/papers/fast_vert_cache_opt.html
@@ -537,7 +537,7 @@ def GenerateTangents(tLodLevels, tVertexList, errorsMem):
 
 #  We try to sort triangles in the index buffer so that we gain an optimal use
 #  of the hardware vertices cache.
-#  We assign a score to each triangle, we find the best and save it in a new 
+#  We assign a score to each triangle, we find the best and save it in a new
 #  ordered list.
 #  The score of each triangle is the sum of the score of its vertices, and the
 #  score of a vertex is higher if it is:
@@ -563,7 +563,7 @@ def CalculateScore(rank):
 
     score = 0.0
     cachePosition = rank.cachePosition
-    
+
     if cachePosition < 0:
         # Vertex is not in FIFO cache - no score
         pass
@@ -589,18 +589,18 @@ TRIANGLERANK_SIZE = 500
 TRIANGLERANK_MAX_SIZE = 505
 
 def OptimizeIndices(lodLevel):
-    
+
     # Ranks are used to store data for each vertex
     class Rank:
         def __init__(self):
             self.score = 0.0
             self.useCount = 1
             self.cachePosition = -1
-    
+
     # Create a map: vertex index to its corresponding Rank
     ranking = {}
-    
-    # This list contains the original triangles (not in optimal order), we'll move them 
+
+    # This list contains the original triangles (not in optimal order), we'll move them
     # one by one in a new list following the optimal order
     oldTriangles = lodLevel.triangleList
 
@@ -615,7 +615,7 @@ def OptimizeIndices(lodLevel):
 
     # Calculate the first round of scores
     # (Rank is mutable, so CalculateScore will be able to modify it)
-    for rank in ranking.values():        
+    for rank in ranking.values():
         CalculateScore(rank)
 
     # Ths list will contain the triangles sorted in optimal order
@@ -623,7 +623,7 @@ def OptimizeIndices(lodLevel):
 
     # Cache of vertex indices
     vertexCache = []
-    
+
     # The original algorithm was:
     # - scan all the old triangles and find the one with the best score;
     # - move it to the new triangles;
@@ -640,8 +640,8 @@ def OptimizeIndices(lodLevel):
     #   with score lower than the min; for now we add triangles without bothering
     #   about order; if the triangle is already present in the list we only update
     #   its score (even if it is lower);
-    # - when the list is a little too big (TRIANGLERANK_MAX_SIZE), we sort the list 
-    #   by score and we only keep the best TRIANGLERANK_SIZE triangles, we update 
+    # - when the list is a little too big (TRIANGLERANK_MAX_SIZE), we sort the list
+    #   by score and we only keep the best TRIANGLERANK_SIZE triangles, we update
     #   the min score;
     # - after scanning all the old triangles, we take out from the list the best
     #   triangle;
@@ -654,7 +654,7 @@ def OptimizeIndices(lodLevel):
     #   recalculate all old triangles scores, we only need to sort the list and take
     #   out the best triangle.
 
-        
+
     # Vertex index to triangle indices list map
     trianglesMap = {}
     # Populate the map
@@ -672,9 +672,9 @@ def OptimizeIndices(lodLevel):
             self.ranklist = []
             self.min = None
             self.isSorted = True
-    
-        def update(self, triangle):            
-            # Sum the score of all its vertex. 
+
+        def update(self, triangle):
+            # Sum the score of all its vertex.
             # >> This is the slowest part of the algorithm <<
             triangleScore = ranking[triangle[0]].score + ranking[triangle[1]].score + ranking[triangle[2]].score
             # If needed, add it to the list
@@ -705,7 +705,7 @@ def OptimizeIndices(lodLevel):
             self.ranklist = heapq.nlargest(TRIANGLERANK_SIZE, self.ranklist, key = operator.itemgetter(0))
             self.min = self.ranklist[-1][0]
             self.isSorted = True
-        
+
         def popBest(self):
             bestTriangle = self.ranklist[0][1]
             del self.ranklist[0]
@@ -725,7 +725,7 @@ def OptimizeIndices(lodLevel):
         if (progressCur & 0x7F) == 0:
             print("{:.3f}%\r".format(progressCur / progressTot), end='' )
         progressCur += 1
-        
+
         # When the list is empty, we need to scan all the old triangles
         if not trianglesRanking.ranklist:
             for triangle in oldTriangles:
@@ -742,16 +742,16 @@ def OptimizeIndices(lodLevel):
             bestTriangle = trianglesRanking.popBest()
         else:
             log.error("Could not find next triangle")
-            return        
-        
+            return
+
         # Move the best triangle to the output list
         oldTriangles.remove(bestTriangle)
         newTriangles.append(bestTriangle)
-            
+
         # Model the LRU cache behaviour
         # Recreate the cache removing the vertices of the best triangle
         vertexCache = [i for i in vertexCache if i not in bestTriangle]
-        
+
         for vertexIndex in bestTriangle:
             # Then push them to the front
             vertexCache.insert(0, vertexIndex)
@@ -776,9 +776,9 @@ def OptimizeIndices(lodLevel):
             if oldScore != rank.score:
                 # Add to the list all the triangles affected
                 triangleList = trianglesMap[vertexIndex]
-                for triangle in triangleList:   
+                for triangle in triangleList:
                     trianglesRanking.update(triangle)
-                
+
         # Finally erase the extra vertices
         vertexCache[:] = vertexCache[:VERTEX_CACHE_SIZE]
 
@@ -795,14 +795,14 @@ def OptimizeIndices(lodLevel):
 def SetRestPosePosition(context, armatureObj):
     if not armatureObj:
         return None
-        
+
     # Force the armature in the rest position (warning: https://developer.blender.org/T24674)
     # This should reset bones matrices ok, but for sure it is not resetting the mesh tessfaces
     # positions
     savedPosePositionAndVisibility = [armatureObj.data.pose_position, armatureObj.hide_viewport]
     armatureObj.data.pose_position = 'REST'
     armatureObj.hide_viewport = False
-    
+
     # This should help to recalculate all the mesh vertices, it is needed by decomposeMesh
     # and maybe it helps decomposeArmature (but no problem was seen there)
     # TODO: find the correct way, for sure it is not this
@@ -814,7 +814,7 @@ def SetRestPosePosition(context, armatureObj):
     if bpy.ops.object.mode_set.poll():
         bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
     objects.active = savedObjectActive
-        
+
     return savedPosePositionAndVisibility
 
 def RestorePosePosition(armatureObj, savedValue):
@@ -823,11 +823,11 @@ def RestorePosePosition(armatureObj, savedValue):
     armatureObj.data.pose_position = savedValue[0]
     armatureObj.hide_viewport = savedValue[1]
 
-# -- Rigify -- 
+# -- Rigify --
 # In a Rigify system there are ORG bones and DEF bones. The DEF bones causes the mesh deformation
-# and from their corresponding vertex groups we'll get all the vertices weights. The ORG bones 
+# and from their corresponding vertex groups we'll get all the vertices weights. The ORG bones
 # are used to reconstruct the DEF bones hierarchy (they have deform off).
-# Normally you can find the DEF bones in the third to last armature layer (29) and the ORG bones 
+# Normally you can find the DEF bones in the third to last armature layer (29) and the ORG bones
 # in last layer (31).
 # The association between ORG and DEF bones is done by the names with a pair "ORG-<name>" and
 # "DEF-<name>" (e.g. ORG-SPINE and DEF-spine). Sometimes a ORG bone covers multiple DEF bones,
@@ -841,7 +841,7 @@ def RestorePosePosition(armatureObj, savedValue):
 # in their name. We order this list of DEF bones by name, so we can get their correct structure,
 # the lowest number (01) is the root then follows their children.
 # Now we can reconstruct the hierarchy. For each DEF bone X we get the list of DEF bones of the
-# associate ORG bone Y. X will be in the list, if it is the first (it name can be "DEF-<name>" 
+# associate ORG bone Y. X will be in the list, if it is the first (it name can be "DEF-<name>"
 # or "DEF-<name>.01") we get the parent P of the ORG bone Y, we get the list of DEF bones of P,
 # we set the last bone in this list (lower child) as the parent of X. If X is not the first we
 # set the previous DEF bone in the list as the parent of X ('defparent').
@@ -887,8 +887,8 @@ def DerigifyArmature(armature, tOptions):
                 continue
             defbones[bone.name[4:]] = bone
             defchildren[bone.name[4:]] = []
-    
-    # Populate the org2defs with all the DEF bones corresponding to a ORG bone and def2org 
+
+    # Populate the org2defs with all the DEF bones corresponding to a ORG bone and def2org
     # with the unique ORG bone corresponding to a DEF bone.
     # For each DEF bone in the map get its name and Blender bone
     for name, bone in defbones.items():
@@ -989,9 +989,9 @@ def DerigifyArmature(armature, tOptions):
     if badbones:
         log.warning("Bad ORG bones with no DEF children: {:s}".format( ", ".join(badbones) ))
         badbones.clear()
-        
+
     bonesList = []
-    
+
     # Warning for not standard rig
     if badrig:
         log.warning("Incompatible Rigify rig")
@@ -1009,21 +1009,21 @@ def DerigifyArmature(armature, tOptions):
         bonesList.append( (bone, parent) )
         # Proceed with children bones
         for childName in defchildren[boneName]:
-            Traverse(childName)            
-    
+            Traverse(childName)
+
     log.info("Derigify found {:d} DEF bones".format(len(defbones)) )
 
     # Start from bones with no parent (root bones)
     for boneName in defbones:
-        if boneName not in defparent: 
-            Traverse(boneName)    
-                
+        if boneName not in defparent:
+            Traverse(boneName)
+
     return bonesList
 
-# How to read a skeleton: 
+# How to read a skeleton:
 # start from the root bone, move it of bindPosition in the armature space
 # then rotate the armature space with bindRotation, this will be the parent
-# space used by its children. For each child bone move it of bindPosition in 
+# space used by its children. For each child bone move it of bindPosition in
 # the parent space then rotate the parent space with bindRotation, and so on.
 
 # We need each bone position and rotation in parent bone space:
@@ -1032,10 +1032,10 @@ def DerigifyArmature(armature, tOptions):
 # if parent:
 #   poseMatrix = parentBone.matrix.inverted() * poseMatrix
 # else:
-#   poseMatrix = upAxis.matrix.inverted() * origin.matrix * poseMatrix  
+#   poseMatrix = upAxis.matrix.inverted() * origin.matrix * poseMatrix
 
 def DecomposeArmature(scene, armatureObj, meshObj, tData, tOptions):
-    
+
     bonesMap = tData.bonesMap
 
     # 'armature.pose.bones' contains bones data for the current frame
@@ -1061,7 +1061,7 @@ def DecomposeArmature(scene, armatureObj, meshObj, tData, tOptions):
 
     log.info("Decomposing armature: {:s} ({:d} bones)".format(armatureObj.name, len(armature.bones)) )
 
-    originMatrix = Matrix.Identity(4)    
+    originMatrix = Matrix.Identity(4)
     if tOptions.bonesGlobalOrigin:
         originMatrix = armatureObj.matrix_world
 
@@ -1072,7 +1072,7 @@ def DecomposeArmature(scene, armatureObj, meshObj, tData, tOptions):
     else:
         # from a standard armature
         bonesList = []
-        
+
         # Recursively add children
         def Traverse(bone, parent):
             childAdded = False
@@ -1085,22 +1085,22 @@ def DecomposeArmature(scene, armatureObj, meshObj, tData, tOptions):
                     return False
             bonesList.append( (bone, parent) )
             return True
-            
+
         # Start from bones with no parent (root bones)
         for bone in armature.bones.values():
-            if bone.parent is None: 
-                Traverse(bone, None)    
+            if bone.parent is None:
+                Traverse(bone, None)
 
     if not bonesList:
         log.warning('Armature {:s} has no bone to export'.format(armatureObj.name))
         return
 
     for bone, parent in bonesList:
-    
+
         # 'bone.matrix_local' is referred to the armature, we need
         # the transformation between the current bone and its parent.
         boneMatrix = bone.matrix_local.copy()
-        
+
         # Here 'bone.matrix_local' is in object(armature) space, so we have to
         # calculate the bone transformation in parent bone space
         if parent:
@@ -1118,22 +1118,22 @@ def DecomposeArmature(scene, armatureObj, meshObj, tData, tOptions):
         if tOptions.scale != 1.0:
             boneMatrix.translation *= tOptions.scale
 
-        # Extract position and rotation relative to parent in parent space        
+        # Extract position and rotation relative to parent in parent space
         t = boneMatrix.to_translation()
         q = boneMatrix.to_quaternion()
         s = boneMatrix.to_scale()
-                
+
         # Convert position and rotation to left hand:
         tl = Vector((t.x, t.y, -t.z))
         ql = Quaternion((q.w, -q.x, -q.y, q.z))
         sl = Vector((s.x, s.y, s.z))
-        
+
         # Now we need the bone matrix relative to the armature. 'matrix_local' is
         # what we are looking for, but it needs to be converted:
         # 1) rotate of -90° on X axis:
         # - swap column 1 with column 2
         # - negate column 1
-        # 2) convert bone transformation in object space to left hand:        
+        # 2) convert bone transformation in object space to left hand:
         # - swap row 1 with row 2
         # - swap column 1 with column 2
         # So putting them together:
@@ -1163,19 +1163,19 @@ def DecomposeArmature(scene, armatureObj, meshObj, tData, tOptions):
 #-------------------------------
 # Right to Left hand conversion
 #-------------------------------
-# 
+#
 # Blender (right hand):  X=right, Y=forward, Z=up,      right hand rotations
 # Urho (left hand):      X=right, Y=up,      Z=forward, left hand rotations
-# 
+#
 # Rotation on X then Y then Z in right hand coordinates:
-#   RZ(z) * RY(y) * RX(x) 
+#   RZ(z) * RY(y) * RX(x)
 # =
 # | c(z) -s(z) 0 | |  c(y) 0 s(y) | | 1  0     0   |
-# | s(z)  c(z) 0 | |   0   1  0   | | 0 c(x) -s(x) | 
+# | s(z)  c(z) 0 | |   0   1  0   | | 0 c(x) -s(x) |
 # |  0     0   1 | | -s(y) 0 c(y) | | 0 s(x)  c(x) |
 # =
 # | c(y)*c(z) -s(z)  s(y)*c(z) | | 1  0     0   |
-# | c(y)*s(z)  c(z)  s(y)*s(z) | | 0 c(x) -s(x) | 
+# | c(y)*s(z)  c(z)  s(y)*s(z) | | 0 c(x) -s(x) |
 # | -s(y)      0     c(y)      | | 0 s(x)  c(x) |
 # =
 # | c(y)*c(z)  -c(x)*s(z)+s(x)*s(y)*c(z)  s(x)*s(z)+c(x)*s(y)*c(z) |   | A B C |
@@ -1188,15 +1188,15 @@ def DecomposeArmature(scene, armatureObj, meshObj, tData, tOptions):
 #   RY(-z) * RZ(-y) * RX(-x)
 # =
 # |  c(-z) 0 s(-z) | | c(-y) -s(-y) 0 | | 1   0      0   |
-# |   0    1   0   | | s(-y)  c(-y) 0 | | 0 c(-x) -s(-x) | 
+# |   0    1   0   | | s(-y)  c(-y) 0 | | 0 c(-x) -s(-x) |
 # | -s(-z) 0 c(-z) | |   0     0    1 | | 0 s(-x)  c(-x) |
 # =
 # |  c(z) 0 -s(z) | |  c(y) s(y) 0 | | 1   0     0   |
-# |   0   1   0   | | -s(y) c(y) 0 | | 0  c(x)  s(x) | 
+# |   0   1   0   | | -s(y) c(y) 0 | | 0  c(x)  s(x) |
 # |  s(z) 0  c(z) | |   0    0   1 | | 0 -s(x)  c(x) |
 # =
 # | c(y)*c(z)  s(y)*c(z) -s(z) | | 1   0     0   |
-# | -s(y)      c(y)        0   | | 0  c(x)  s(x) | 
+# | -s(y)      c(y)        0   | | 0  c(x)  s(x) |
 # | c(y)*s(z)  s(y)*s(z)  c(z) | | 0 -s(x)  c(x) |
 # =
 # | c(y)*c(z)  c(x)*s(y)*c(z)           s(x)*s(y)*c(z)-c(x)*s(z) |   | A C B |
@@ -1226,14 +1226,14 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
 
     bonesMap = tData.bonesMap
     animationsList = tData.animationsList
-    
+
     if not armatureObj.animation_data:
         if isArmature:
             log.warning('Armature {:s} has no animation data'.format(armatureObj.name))
         else:
             log.warning('Object {:s} has no animation data'.format(armatureObj.name))
         return
-                        
+
     originMatrix = Matrix.Identity(4)
     if tOptions.actionsGlobalOrigin:
         originMatrix = armatureObj.matrix_world
@@ -1241,7 +1241,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
             # Blender moves/rotates the armature together with the mesh, so if you set a global origin
             # for Mesh and Actions you'll have twice the transformations. Set only one global origin.
             log.warning("Use local origin for the object otherwise transformations are applied twice")
-    
+
     # Save current action and frame, we'll restore them later
     savedAction = armatureObj.animation_data.action
     savedFrame = scene.frame_current
@@ -1251,7 +1251,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
     # one TAnimation with an object per track, each track must be named after the object.
     # See the "AnimationState(Node* node, Animation* animation)" constructor.
     commonAnimation = None
-    
+
     # Here we collect every animation objects we want to export
     animationObjects = []
 
@@ -1278,7 +1278,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
             if tOptions.doSelectedActions and strip.select and action and not action in animationObjects:
                 animationObjects.append(action)
             previous = strip
-                
+
     # Add all the Actions (even if unused or deleted)
     if tOptions.doAllActions:
         animationObjects.extend(bpy.data.actions)
@@ -1304,14 +1304,14 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
         else:
             log.warning('Object {:s} has no animation to export'.format(armatureObj.name))
         return
-    
+
     for object in animationObjects:
         tAnimation = commonAnimation or TAnimation(object.name)
-    
+
         # Objects to save old values
         oldTrackValue = None
         oldStripValue = None
-    
+
         if isinstance(object, bpy.types.Action):
             # Actions have their frame range
             (startframe, endframe) = object.frame_range
@@ -1342,7 +1342,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
         except AttributeError:
             log.error("You need to exit action edit mode")
             return
-        
+
         # If it is an Action, set the current Action; also disable NLA to disable influences from other NLA tracks
         if isinstance(object, bpy.types.Action):
             # Get the Fcurves of the Action
@@ -1357,7 +1357,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
             armatureObj.animation_data.action = object
             # Get the Actions
             actionSet.add(object)
-            
+
         # If it is a Track (not muted), set it as solo
         if isinstance(object, bpy.types.NlaTrack):
             log.info("Decomposing track: {:s} (frames {:.1f} {:.1f})".format(object.name, startframe, endframe-1))
@@ -1426,11 +1426,11 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
         else:
             # Get all the names of the bones in the map
             bones = bonesMap.keys()
-        
+
         if not bones:
             log.warning("No bones for animation {:s}".format(object.name))
             continue
-        
+
         # Reset position/rotation/scale of each bone
         if isArmature:
             for poseBone in armatureObj.pose.bones:
@@ -1439,7 +1439,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
         # Progress counter
         progressCur = 0
         progressTot = 0.01 * len(bones) * (endframe-startframe)/scene.frame_step
-    
+
         for boneName in bones:
             if isArmature:
                 if not boneName in bonesMap:
@@ -1449,7 +1449,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
                 if not boneName in armatureObj.pose.bones:
                     log.warning("Pose does not contain bone {:s}".format(boneName))
                     continue
-                            
+
                 # Get the Blender pose bone (bpy.types.PoseBone)
                 poseBone = armatureObj.pose.bones[boneName]
                 parent = poseBone.parent
@@ -1495,14 +1495,14 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
 
             # For each frame
             for frameTime in range(startframe, endframe, scene.frame_step):
-                
+
                 if (progressCur % 40) == 0:
                     print("{:.3f}%\r".format(progressCur / progressTot), end='' )
                 progressCur += 1
 
                 # Check if we are at the last frame
                 isLastFrame = (frameTime >= endframe - scene.frame_step)
-                
+
                 if actionFcurves:
                     # Evaluate the Fcurves of the current bone at the current time
 
@@ -1544,7 +1544,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
                     deltaMatrix.translation = curvePosition
 
                     # The matrix above is the rotation/scale/translation of the bone with respect to its rest
-                    # position relative to its parent. 
+                    # position relative to its parent.
                     # We apply the rest position to obtain the rotation/scale/translation of the bone with
                     # respect to its parent.
                     poseMatrix = restMatrix @ deltaMatrix
@@ -1553,7 +1553,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
                     # Set frame (TODO: this is very slow, try to advance only the armature)
                     # (rna_Scene_frame_set, BKE_scene_update_for_newframe, BKE_animsys_evaluate_animdata)
                     scene.frame_set(frameTime)
-                
+
                     if isArmature:
                         # This matrix is referred to the armature (object space)
                         poseMatrix = poseBone.matrix.copy()
@@ -1582,11 +1582,11 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
                 if tOptions.scale != 1.0:
                     poseMatrix.translation *= tOptions.scale
 
-                # Extract position and rotation relative to parent in parent space        
+                # Extract position and rotation relative to parent in parent space
                 t = poseMatrix.to_translation()
                 q = poseMatrix.to_quaternion()
                 s = poseMatrix.to_scale()
-                
+
                 # Convert position, rotation and scale to left hand:
                 if isArmature:
                     # Bone animation
@@ -1598,7 +1598,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
                     tl = Vector((t.x, t.z, t.y))
                     ql = Quaternion((q.w, -q.x, -q.z, -q.y))
                     sl = Vector((s.x, s.z, s.y))
-                
+
                 if not tOptions.doAnimationPos:
                     tl = None
                 if not tOptions.doAnimationRot:
@@ -1611,7 +1611,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
                 # Append the frame to the track only if it is the first, the last or if something moved
                 if not tTrack.frames or isLastFrame or tTrack.frames[-1].hasMoved(tFrame):
                     tTrack.frames.append(tFrame)
-                
+
             if tTrack.frames and (not tOptions.filterSingleKeyFrames or len(tTrack.frames) > 1):
                 tAnimation.tracks.append(tTrack)
 
@@ -1689,10 +1689,10 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
             # The first animation becomes the common animation
             if not tData.commonAnimation:
                 tData.commonAnimation = tAnimation
-        
+
         if isinstance(object, bpy.types.NlaTrack):
             object.is_solo = oldTrackValue
-            
+
         if isinstance(object, NlaStripLink):
             object.track.is_solo = oldTrackValue
             if object.previous:
@@ -1714,14 +1714,15 @@ def DecomposeMaterial(mesh, material, tMaterial):
     bsdf = node_shader_utils.PrincipledBSDFWrapper(material)
     if not bsdf:
         return
-    
+
     tMaterial.diffuseColor = Color(bsdf.base_color[:3])
     tMaterial.diffuseIntensity = 1.0
 
     tMaterial.specularColor = Color((bsdf.specular, bsdf.specular, bsdf.specular))
     tMaterial.specularIntensity = ((1.0 - bsdf.roughness) * 30.0)**2.0
 
-    tMaterial.twoSided = mesh.show_double_sided
+    #tMaterial.twoSided = mesh.show_double_sided
+    tMaterial.twoSided = False
 
     texturesMap = {
         "diffuse": "base_color_texture",
@@ -1800,9 +1801,9 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
     morphsList = tData.morphsList
     bonesMap = tData.bonesMap
     meshIndex = errorsMem.SecondIndex(meshObj.name)
-    
+
     verticesMap = {}
-    
+
     # Save existing shape key values, and set them to zero
     shapeKeysOldValues = []
     objShapeKeys = meshObj.data.shape_keys
@@ -1823,7 +1824,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
         return
 
     log.info("Decomposing mesh: {:s} ({:d} vertices)".format(meshObj.name, len(mesh.vertices)) )
-    
+
     # Compute local space unit length split normals vectors
     mesh.calc_normals_split()
     mesh.calc_loop_triangles()
@@ -1831,7 +1832,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
     # If we use the object local origin (orange dot) we don't need transformations
     posMatrix = Matrix.Identity(4)
     normalMatrix = Matrix.Identity(4)
-    
+
     if tOptions.globalOrigin:
         posMatrix = meshObj.matrix_world
         # Use the inverse transpose to rotate normals without scaling (math trick)
@@ -1844,7 +1845,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
 
     # Apply custom scaling last
     if tOptions.scale != 1.0:
-        posMatrix = Matrix.Scale(tOptions.scale, 4) @ posMatrix 
+        posMatrix = Matrix.Scale(tOptions.scale, 4) @ posMatrix
 
     # Vertices map: vertex Blender index to TVertex index
     faceVertexMap = {}
@@ -1856,7 +1857,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
 
     # Mesh vertex groups
     meshVertexGroups = meshObj.vertex_groups
-    
+
     # Errors helpers
     notBonesGroups = set()
     missingGroups = set()
@@ -1866,11 +1867,11 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
 
     # Python trick: C = A and B, if A is False (None, empty list) then C=A, if A is
     # True (object, populated list) then C=B
-    
+
     # Check if the mesh has UV data
     uvs = None
     uvs2 = None
-    # Search the UV layers which name ends in "_UV1" or "_UV2"  
+    # Search the UV layers which name ends in "_UV1" or "_UV2"
     for uvLayer in mesh.uv_layers:
         if uvLayer.name.endswith("_UV") or uvLayer.name.endswith("_UV1"):
             uvs = uvLayer.data
@@ -1886,7 +1887,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
         log.warning("Object {:s} has no UV data".format(meshObj.name))
     if tOptions.doGeometryUV2 and not uvs2:
         log.warning("Object {:s} has no texture with UV2 data, append _UV2 to the UV map's name".format(meshObj.name))
-    
+
     # Check if the mesh has vertex color data
     # Note: a color map has the aplha component (data[i].color = RGBA), but there is no way to set it in the color
     # picker, so we use a different vertex color layer to set the aplha, from RGB to HSV and we use V.
@@ -1929,7 +1930,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
         material = None
         if mesh.materials and tri.material_index < len(mesh.materials):
             material = mesh.materials[tri.material_index]
-        
+
         # Add the material if it is new
         materialName = material and material.name
         if tOptions.doMaterials and materialName and (not materialName in materialsList):
@@ -1941,7 +1942,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
         mapMaterialName = materialName
         if tOptions.mergeObjects and tOptions.mergeNotMaterials:
             mapMaterialName = str(materialName) + "---" + meshObj.name
-        # From the material name search for the geometry index, or add it to the map if missing            
+        # From the material name search for the geometry index, or add it to the map if missing
         try:
             geometryIndex = materialGeometryMap[mapMaterialName]
         except KeyError:
@@ -1954,7 +1955,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
 
         # Get the geometry associated to the material
         geometry = geometriesList[geometryIndex]
-        
+
         # Get the last LOD level, or add a new one if requested in the options
         lodLevelIndex = len(geometry.lodLevels)
         if not geometry.lodLevels or geometryIndex not in tOptions.lodUpdatedGeometryIndices:
@@ -1971,7 +1972,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
 
         indexSet = tLodLevel.indexSet
         triangleList = tLodLevel.triangleList
-            
+
         # Here we store all the indices of the face, then we decompose it into triangles
         tempList = []
 
@@ -2000,10 +2001,10 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                 # use triangle normal
                 normal = tri.normal
             normal = normalMatrix @ normal
-            
+
             # Create a new vertex
             tVertex = TVertex()
-            
+
             # Set Blender index
             tVertex.blenderIndex = (meshIndex, vertexIndex)
 
@@ -2034,12 +2035,12 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                 color = [0, 0, 0, 255]
                 if colorsRgb or colorsAlpha:
                     if colorsRgb:
-                        # This is an array of 3 floats from 0.0 to 1.0 
+                        # This is an array of 3 floats from 0.0 to 1.0
                         ###! .color[3] is alpha but you can't set/change it from blender
                         rgb = colorsRgb[loopIndex].color
                         # Approx 255*float to the closest int
-                        color[:3] = ( int(round(rgb[0] * 255.0)), 
-                                      int(round(rgb[1] * 255.0)), 
+                        color[:3] = ( int(round(rgb[0] * 255.0)),
+                                      int(round(rgb[1] * 255.0)),
                                       int(round(rgb[2] * 255.0)) )
                     if colorsAlpha:
                         # For Alpha use Value of HSV
@@ -2048,7 +2049,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                     tVertex.color = tuple(color)
                 elif tOptions.doForceElements:
                     tVertex.color = tuple(color)
-                    
+
             # Set Vertex bones weights
             if tOptions.doGeometryWei:
                 weights = []
@@ -2083,13 +2084,13 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                     tVertex.weights = weights
                 elif tOptions.doForceElements:
                     tVertex.weights = [(0, 0.0)]
-                
+
             # All this code do is "tVertexIndex = verticesMapList.index(tVertex)", but we use
             # a map to speed up.
 
             # Get an hash of the vertex (different vertices with the same hash are ok)
             vertexHash = hash(tVertex)
-            
+
             try:
                 # Get a list of vertex indices with the same hash
                 verticesMapList = verticesMap[vertexHash]
@@ -2097,7 +2098,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                 # If the hash is not mapped, create a new list (we should use sets but lists are faster)
                 verticesMapList = []
                 verticesMap[vertexHash] = verticesMapList
-            
+
             # For each index in the list, test if it is the same as the current tVertex.
             # If Position, Normal and UV must be the same get its index.
             ## tVertexIndex = next((j for j in verticesMapList if verticesList[j] == tVertex), None)
@@ -2115,10 +2116,10 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
 
             # Add the vertex index to the temp list to create triangles later
             tempList.append(tVertexIndex)
-                        
+
             # Map Blender triangle index and Blender vertex index to our TVertex index (this is used later by Morphs)
             faceVertexMap[(tri.index, vertexIndex)] = tVertexIndex
-            
+
             # Save every unique vertex this LOD is using
             indexSet.add(tVertexIndex)
 
@@ -2146,7 +2147,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
             log.warning("Object {:s} is not affected by any bone".format(meshObj.name))
         elif hasWeight[0] != hasWeight[1]:
             print("Object {:s} is only {:.1f}% skinned".format(meshObj.name, 100.0 * hasWeight[0] / hasWeight[1]))
-    
+
     # Generate tangents for the last LOD of every geometry with new vertices
     if tOptions.doGeometryTan:
         lodLevels = []
@@ -2158,7 +2159,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                     .format(len(lodLevel.indexSet), meshObj.name, geometryIndex) )
             lodLevels.append(lodLevel)
         GenerateTangents(lodLevels, verticesList, errorsMem)
-            
+
     # Optimize vertex index buffer for the last LOD of every geometry with new vertices
     if tOptions.doOptimizeIndices:
         for geometryIndex in updatedGeometryIndices:
@@ -2168,7 +2169,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
             log.info("Optimizing {:d} indices for {:s} Geometry{:d}"
                     .format(len(lodLevel.indexSet), meshObj.name, geometryIndex) )
             OptimizeIndices(lodLevel)
-    
+
     # Check if we need and can work on shape keys (morphs)
     keyBlocks = []
     if tOptions.doMorphs:
@@ -2187,16 +2188,16 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
         # Skip muted shape keys
         if block.mute:
             continue
-        
+
         tMorph = TMorph(block.name)
-        
+
         log.info("Decomposing shape: {:s} ({:d} vertices)".format(block.name, len(block.data)) )
 
         # Check if vertex counts match
         if len(mesh.vertices) != len(block.data):
             log.error("Vertex count mismatch on shape {:s}.".format(block.name))
             continue
-        
+
         # Probably to use the old code where we set the shape key to 100% on the object, we need
         # to use: evaluated_depsgraph_get + evaluated_get + to_mesh (exactly like done with mesh)
 
@@ -2210,9 +2211,9 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
         # Compute local space unit length split normals vectors
         mesh.calc_normals_split()
         mesh.calc_loop_triangles()
-        
+
         # TODO: if set use 'vertex group' of the shape to filter affected vertices
-        
+
         for tri in mesh.loop_triangles:
             # TODO: add only affected triangles not faces, use morphed as a mask
             morphed = False
@@ -2220,15 +2221,15 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
             # In this list we store vertex index and morphed vertex of each triangle, we'll add them
             # to the morph only if at least one vertex on the triangle is affected by the morph
             tempList = []
-            
+
             # For each Blender vertex index in the triangle
             for i, vertexIndex in enumerate(tri.vertices):
 
                 # Get the Blender morphed vertex
                 vertex = mesh.vertices[vertexIndex]
-                
+
                 position = posMatrix @ vertex.co
-                
+
                 if mesh.use_auto_smooth:
                     # if using Data->Normals->Auto Smooth, use split normal vector
                     normal = Vector(tri.split_normals[i])
@@ -2250,7 +2251,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
 
                 # Get the original not morphed TVertex
                 tVertex = verticesList[tVertexIndex]
-                   
+
                 # Create a new morphed vertex
                 # (note: this vertex stores absolute values, not relative to original values)
                 tMorphVertex = TVertex()
@@ -2264,22 +2265,22 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                 # Set Vertex normal
                 if tOptions.doMorphNor:
                     tMorphVertex.normal = Vector((normal.x, normal.z, normal.y))
-                
+
                 # If we have UV, copy them to the TVertex, we only need them to calculate tangents
                 if tOptions.doMorphUV:
                     if tVertex.uv:
                         tMorphVertex.uv = tVertex.uv
                     elif tOptions.doForceElements:
                         tVertex.uv = Vector(0.0, 0.0)
-                
+
                 # Save vertex index and morphed vertex, to be added later if at least one
                 # vertex in the triangle was morphed
                 tempList.append((tVertexIndex, tMorphVertex))
-                
+
                 # Check if the morph has effect
                 if tMorphVertex.isMorphed(tVertex):
                     morphed = True
-            
+
             # If at least one vertex in the triangle was morphed
             if morphed:
                 # Add vertices to the morph
@@ -2296,7 +2297,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                     except KeyError:
                         # Add a new morph vertex
                         tMorph.vertexMap[tVertexIndex] = tMorphVertex
-                        
+
                     # Save how many unique vertex this LOD is using (for tangents calculation)
                     tMorph.indexSet.add(tVertexIndex)
 
@@ -2308,7 +2309,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                     if i == 3:
                         triangle = (tempList[0][0], tempList[3][0], tempList[2][0])
                         tMorph.triangleList.append(triangle)
-                    
+
         if tOptions.doMorphTan:
             log.info("Generating morph tangents {:s}".format(block.name) )
             GenerateTangents((tMorph,), tMorph.vertexMap, None)
@@ -2319,8 +2320,8 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
         else:
             log.warning('Empty shape {:s}.'.format(block.name))
 
-    # We can have "Different vertex" errors when some vertices are merged in the base morph because 
-    # positions and normals are the same, but in other morphs, the normals can diverge and this require 
+    # We can have "Different vertex" errors when some vertices are merged in the base morph because
+    # positions and normals are the same, but in other morphs, the normals can diverge and this require
     # separated vertices. We could do a prepass on the shapes to find and avoid merging these vertices.
     if morphHasNewNormals:
         log.info("To solve the shapes errors try setting the faces to smooth")
@@ -2340,15 +2341,15 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
 
 # Scan and decompose objects
 def Scan(context, tDataList, errorsMem, tOptions):
-    
+
     scene = context.scene
-    
+
     # Get all objects in the scene or only the selected in visible layers
-    if tOptions.onlySelected: 
-        objs = context.selected_objects 
+    if tOptions.onlySelected:
+        objs = context.selected_objects
     else:
         objs = scene.objects
-    
+
     noLod = True
     noWork = True
 
@@ -2358,11 +2359,11 @@ def Scan(context, tDataList, errorsMem, tOptions):
         # Only meshes
         if obj.type != 'MESH':
             continue
-        
+
         # Only not hidden
         if obj.hide_viewport: ### bugged?
             continue
-    
+
         if tOptions.useLods:
             # Search in the object's name for this match: <name>_LOD<distance>
             # if not found, consider it as a LOD with distance 0
@@ -2405,9 +2406,9 @@ def Scan(context, tDataList, errorsMem, tOptions):
     tData = None
     lodCurrentName = None
     for obj, lodName, lodDistance in meshes:
-            
+
         log.info("---- Decomposing {:s} ----".format(obj.name))
-        
+
         # Are we creating a new container (TData) for a new mesh?
         # When merging is always False, when using LODs is True when changing object but False when adding a LOD.
         createNew = True
@@ -2449,7 +2450,7 @@ def Scan(context, tDataList, errorsMem, tOptions):
                         log.warning("Wrong LOD sequence: {:d} then {:d}".format(tOptions.lodDistance, lodDistance) )
                 tOptions.lodDistance = lodDistance
                 log.info("Added as {:s} LOD with distance {:.3f}".format(lodName, lodDistance))
-    
+
         # Create a new container where to save decomposed data
         if not tData or createNew:
             tData = TData()
@@ -2462,7 +2463,7 @@ def Scan(context, tDataList, errorsMem, tOptions):
             tDataList.append(tData)
             tOptions.lodUpdatedGeometryIndices.clear() # request new LOD
             tOptions.lodDistance = 0.0
-        
+
         # First we need to populate the skeleton, then animations and then geometries
         armatureObj = None
         if tOptions.doBones:
@@ -2509,12 +2510,12 @@ if __name__ == "__main__":
 
     tDataList = []
     tOptions = TOptions()
-    
+
     Scan(bpy.context, tDataList, tOptions)
     if tDataList:
         PrintAll(tDataList[0])
-                
+
     print("Executed in {:.4f} sec".format(ostime.time() - startTime) )
     print("------------------------------------------------------")
-    
-    
+
+
